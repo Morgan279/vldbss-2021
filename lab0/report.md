@@ -1,11 +1,5 @@
 # Lab0 实验报告
 
-> Wancheng Long
->
-> source code is also available in https://github.com/Morgan279/vldbss-2021
-
-
-
 ## 实验结果
 
 ### 1. 完成 Map-Reduce 框架

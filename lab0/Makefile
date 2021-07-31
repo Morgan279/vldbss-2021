@@ -3,10 +3,10 @@
 all: test_example test_homework cleanup gendata
 
 test_example:
-	go test -v -run=TestExampleURLTop
+	go test -v -timeout 60m -run=TestExampleURLTop
 
 test_homework:
-	go test -v -run=TestURLTop
+	go test -v -timeout 60m -run=TestURLTop
 
 cleanup:
 	go test -v -run=TestCleanData

@@ -118,6 +118,7 @@ func (c *MRCluster) worker() {
 
 				reduceRes := make(map[string][]string)
 				for i := 0; i < t.nMap; i++ {
+					//get location of map result
 					mappedFileName := reduceName(t.dataDir, t.jobName, i, t.taskNumber)
 					mappedFile, err := os.Open(mappedFileName)
 					if err != nil {
@@ -207,25 +208,11 @@ func (c *MRCluster) run(jobName, dataDir string, mapF MapF, reduceF ReduceF, map
 		t.wg.Wait()
 	}
 
-	pwd, err := os.Getwd()
-	if err != nil {
-		log.Fatalln("get os pwd error: ", err)
-	}
-	resultPath := path.Join(pwd, "result.txt")
-	fs, bs := CreateFileAndBuf(resultPath)
+	results := make([]string,0,nReduce)
 	for i := 0; i < nReduce; i++ {
-		mergeFileName := mergeName(dataDir, jobName, i)
-		mergeContent, err := ioutil.ReadFile(mergeFileName)
-		if err != nil {
-			log.Fatalln("open merge file: ", mergeFileName, " failed, error: ", err)
-		}
-		if _, err := bs.Write(mergeContent); err != nil {
-			log.Fatalln("write merge content error: ", err)
-		}
+		results = append(results, mergeName(dataDir, jobName, i))
 	}
-	SafeClose(fs, bs)
-	res := []string{resultPath}
-	notify <- res
+	notify <- results
 }
 
 func ihash(s string) int {

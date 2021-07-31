@@ -1,5 +1,11 @@
 # Lab0 实验报告
 
+> Wancheng Long
+>
+> source code is also available in https://github.com/Morgan279/vldbss-2021
+
+
+
 ## 实验结果
 
 ### 1. 完成 Map-Reduce 框架
@@ -67,7 +73,9 @@ PASS
 ok     talent 1259.742s
 ```
 
-result of test example is available in log/test_example.log
+Result of "make test_example" is available in log/test_example.log
+
+
 
 ### 2. 基于 Map-Reduce 框架编写 Map-Reduce 函数
 
@@ -134,11 +142,11 @@ PASS
 ok     talent 286.307s
 ```
 
-result of test example is available in log/test_homework.log
+Result of "make test_homework" is available in log/test_homework.log
 
 
 
 ## 实验总结
 
-在这部分可以简单谈论自己在实验过程中遇到的困难、对 Map-Reduce 计算框架的理解，字数在 1000 字以内。
+I have written a blog to summarize this lab, see 
 

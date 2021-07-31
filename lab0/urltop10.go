@@ -23,20 +23,19 @@ func URLTop10(nWorkers int) RoundsArgs {
 		NReduce:    nWorkers,
 	})
 
-	// round 2: map phase do sort and topK filter, reduce phase just do output
+	// round 2: both map phase and reduce do sort and topK filter
 	args = append(args, RoundArgs{
-		MapFunc:    URLTop10SortMap,
-		ReduceFunc: URLTop10OutputReduce,
+		MapFunc:    URLTop10SortFilterMap,
+		ReduceFunc: URLTop10SortFilterReduce,
 		NReduce:    1,
 	})
 
 	return args
 }
 
-// URLTop10CountMap count url and combine same key to reduce the network IO
+// URLTop10CountMap count url and combine same key to reduce IO
 func URLTop10CountMap(filename string, contents string) []KeyValue {
 	lines := strings.Split(contents, "\n")
-	kvs := make([]KeyValue, 0)
 	kvMap := make(map[string]int)
 	for _, url := range lines {
 		url = strings.TrimSpace(url)
@@ -48,6 +47,8 @@ func URLTop10CountMap(filename string, contents string) []KeyValue {
 		}
 		kvMap[url] = kvMap[url] + 1
 	}
+
+	kvs := make([]KeyValue, 0)
 	for k, v := range kvMap {
 		kvs = append(kvs,KeyValue{Key: k,Value: strconv.Itoa(v)})
 	}
@@ -56,21 +57,20 @@ func URLTop10CountMap(filename string, contents string) []KeyValue {
 
 // URLTop10CountReduce calculate key's total count
 func URLTop10CountReduce(key string, values []string) string {
-	var count int64 = 0
-	//int64 for avoiding overflow
+	count := 0
 	for _, v := range values {
-		v64, err := strconv.ParseInt(v,10,64)
+		vInt, err := strconv.Atoi(v)
 		if err != nil{
 			panic(err)
 		}
-		count += v64
+		count += vInt
 	}
 
 	return fmt.Sprintf("%s: %d\n", key, count)
 }
 
-// URLTop10SortMap do sort and topK filter
-func URLTop10SortMap(filename string, contents string) []KeyValue {
+// URLTop10SortFilterMap do sort and topK filter
+func URLTop10SortFilterMap(filename string, contents string) []KeyValue {
 	lines := strings.Split(contents, "\n")
 	cnts := make(map[string]int)
 	for _, v := range lines {
@@ -95,11 +95,29 @@ func URLTop10SortMap(filename string, contents string) []KeyValue {
 	return kvs
 }
 
-// URLTop10OutputReduce just output result
-func URLTop10OutputReduce(key string, values []string) string {
+// URLTop10SortFilterReduce do sort and topK filter
+func URLTop10SortFilterReduce(key string, values []string) string {
+	kvMap := make(map[string]int, len(values))
+	for _, value := range values {
+		tmp := strings.Split(value, ": ")
+		url := strings.TrimSpace(tmp[0])
+		if len(url) == 0 {
+			continue
+		}
+		n, err := strconv.Atoi(tmp[1])
+		if err != nil {
+			panic(err)
+		}
+		if _, exist := kvMap[url]; !exist {
+			kvMap[url] = 0
+		}
+		kvMap[url] = kvMap[url] + n
+	}
+
+	us, cs := TopN(kvMap, K)
 	buf := new(bytes.Buffer)
-	for _, v := range values {
-		fmt.Fprintln(buf,v)
+	for i := range us {
+		fmt.Fprintf(buf, "%s: %d\n", us[i], cs[i])
 	}
 	return buf.String()
 }

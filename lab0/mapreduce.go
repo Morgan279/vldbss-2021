@@ -112,7 +112,37 @@ func (c *MRCluster) worker() {
 				// hint: don't encode results returned by ReduceF, and just output
 				// them into the destination file directly so that users can get
 				// results formatted as what they want.
-				panic("YOUR CODE HERE")
+				if t.phase != reducePhase {
+					panic("unknown task phase")
+				}
+
+				reduceRes := make(map[string][]string)
+				for i := 0; i < t.nMap; i++ {
+					mappedFileName := reduceName(t.dataDir, t.jobName, i, t.taskNumber)
+					mappedFile, err := os.Open(mappedFileName)
+					if err != nil {
+						log.Fatalln("open mapped file error: ", mappedFileName, " error: ", err)
+					}
+
+					dec := json.NewDecoder(mappedFile)
+					for {
+						var kv KeyValue
+						if err := dec.Decode(&kv); err != nil {
+							break //EOF
+						}
+						if _, exist := reduceRes[kv.Key]; !exist {
+							reduceRes[kv.Key] = make([]string, 0)
+						}
+						reduceRes[kv.Key] = append(reduceRes[kv.Key], kv.Value)
+					}
+					SafeClose(mappedFile, nil)
+				}
+
+				fs, bs := CreateFileAndBuf(mergeName(t.dataDir, t.jobName, t.taskNumber))
+				for k, v := range reduceRes {
+					WriteToBuf(bs, t.reduceF(k, v))
+				}
+				SafeClose(fs, bs)
 			}
 			t.wg.Done()
 		case <-c.exit:
@@ -159,7 +189,43 @@ func (c *MRCluster) run(jobName, dataDir string, mapF MapF, reduceF ReduceF, map
 
 	// reduce phase
 	// YOUR CODE HERE :D
-	panic("YOUR CODE HERE")
+	reduceTasks := make([]*task, 0, nReduce)
+	for i := 0; i < nReduce; i++ {
+		t := &task{
+			dataDir:    dataDir,
+			jobName:    jobName,
+			phase:      reducePhase,
+			taskNumber: i,
+			nMap:       nMap,
+			reduceF:    reduceF,
+		}
+		t.wg.Add(1)
+		reduceTasks = append(reduceTasks, t)
+		go func() { c.taskCh <- t }()
+	}
+	for _, t := range reduceTasks {
+		t.wg.Wait()
+	}
+
+	pwd, err := os.Getwd()
+	if err != nil {
+		log.Fatalln("get os pwd error: ", err)
+	}
+	resultPath := path.Join(pwd, "result.txt")
+	fs, bs := CreateFileAndBuf(resultPath)
+	for i := 0; i < nReduce; i++ {
+		mergeFileName := mergeName(dataDir, jobName, i)
+		mergeContent, err := ioutil.ReadFile(mergeFileName)
+		if err != nil {
+			log.Fatalln("open merge file: ", mergeFileName, " failed, error: ", err)
+		}
+		if _, err := bs.Write(mergeContent); err != nil {
+			log.Fatalln("write merge content error: ", err)
+		}
+	}
+	SafeClose(fs, bs)
+	res := []string{resultPath}
+	notify <- res
 }
 
 func ihash(s string) int {
